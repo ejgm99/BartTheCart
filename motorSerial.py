@@ -1,19 +1,22 @@
 import serial,time
 
-arduino_path = "../../../dev/ttyUSB0"
+arduino_path = "../../../../dev/ttyUSB0"
 
 import matplotlib.pyplot as plt
 import RPi.GPIO as GPIO
 import spiUtils as su
 import time
-#import matplotlib.pyplot as plt
 import numpy as np
+from pynput.keyboard import Key, Listener
+
 
 
 # threshold stuff
-smackLvl = 100
+smackLvl = 50
 yellLvl = 200
 distLvl = 15
+
+mode = True
 
 # Setup GPIO pin as input for gate pin
 GPIO.setmode(GPIO.BCM)
@@ -22,11 +25,17 @@ GPIO.setup(gatePin, GPIO.IN)
 start = time.time()
 
 
+
 class arduino_serial(): #interface for talking to arduino
     def __init__(self,path, rate = 250000):
         self.serial = serial.Serial(path, rate)
         self.out = "hello"
+        self.mode = True
         time.sleep(2)
+        self.listener = Listener(on_press=self.on_press, on_release = on_release)
+        self.listener.start()
+        self.run = True
+        print("yeet")
     def write(self, msg):
         self.serial.write(msg.encode("ascii"))
         print("        writing: "+msg)
@@ -44,7 +53,27 @@ class arduino_serial(): #interface for talking to arduino
     def getResponse(self):
         print(self.serial.readline())
         print(self.response.decode("ascii"))
+    def on_press(self, key):
+        try:
+            if key == key.space:
+                #print("Space press")
+                self.mode = not self.mode
+                print("mode changed: ", self.mode)
+                if self.mode == 0:
+                    self.write("9")
+                else:
+                    loop()
+            if key == key.esc:
+                #print("Escaping")
+                self.run= False
+                self.listener.stop()
+        except AttributeError:
+            print("not space")
 
+def on_release(key):
+    #print('{0} release'.format(key) )
+    if key == Key.esc:
+        return False
 
 class intervaller():
     def __init__(self, period):
@@ -129,7 +158,7 @@ def avoidWall(dist):
 
 def rotate():#always go left, to clean room
     print("rotating... ")
-    turn = motorWrite(100,'0',100,'1')
+    turn = motorWrite(10,'0',10,'1')
     m.write(turn)
     while(int(m.serial.readline())<distLvl):
         print("rotating.. ")
@@ -189,7 +218,13 @@ def dataAnalysis(t,d,s,f):
     plt.show()
     
     
-def loop():
+def loop():    
+    #with Listener(on_press=m.on_press, on_release = on_release) as listener:
+     #   listener.join()
+    
+    #listener = Listener(on_press=m.on_press, on_release = on_release)
+    #listener.start()
+    #listener.join()
 #    m = arduino_serial(arduino_path)
     print(m.serial.in_waiting)
     time.sleep(1)
@@ -206,55 +241,59 @@ def loop():
     #thirty_int 
     second_int = intervaller(3)
     one_int = intervaller(1)
-    while True:
-        #print(second_int.interval())
-#        print("---Loop---", time.time()-start )
-#        print("Distance is ", dist
-        dist = int(m.serial.readline())
-        print(dist)
-        force = su.readADC(channel=0)
-        sound = su.readADC(channel=1)
-        tArray = np.append(tArray,(time.time() - start))
-        fArray = np.append(fArray,force)
-        sArray = np.append(sArray,sound)
-        dArray = np.append(dArray,dist)
-        
-        
-        #print(sound)
-        if (force > smackLvl):
-            print("Ouch!")
-            speed += 150
-            writeSpeed(speed,"0","0")
-        if (sound > yellLvl):
-            print("Oof my ear")
-            speed += 30
-            writeSpeed(speed, "0","0")
-        if (speed > 255) :
-            speed = 255
-            writeSpeed(speed,"0","0")
-        elif (speed > 0):
-            if(second_int.interval()):
-                #updateSpeed(-50)
-                speed -= 50
-                if(speed<0):
-                    speed = 0
-                print("speed changed")
+    print("Begin loop")
+    while m.run:
+        #  print("mode",m.mode)
+        print("run",m.run)
+        if m.mode:
+                   
+            #print(second_int.interval())
+    #        print("---Loop---", time.time()-start )
+    #        print("Distance is ", dist
+            #listener.join()
+            dist = int(m.serial.readline())
+           # print(dist)
+            force = su.readADC(channel=0)
+            sound = su.readADC(channel=1)
+            tArray = np.append(tArray,(time.time() - start))
+            fArray = np.append(fArray,force)
+            sArray = np.append(sArray,sound)
+            dArray = np.append(dArray,dist)
+
+            if (force > smackLvl):
+                print("Ouch!")
+                speed += 100
                 writeSpeed(speed,"0","0")
-        avoidWall(dist)
-        #if (time.time() - start > 10):
-         #   dataAnalysis(tArray, dArray, sArray, fArray)
-        #out = motorWrite(speed, '0', speed, '0')
-        #print(out)
-        #if(interval(start, 5)):
-        #if(one_int.interval()):
-        #    m.write(out)
-        #print(speed)
-        #print("\n")
-        #xtime.sleep(5)
+            if (sound > yellLvl):
+                print("Oof my ear")
+                speed += 50
+                writeSpeed(speed, "0","0")
+            if (speed > 255) :
+                speed = 255
+                writeSpeed(speed,"0","0")
+            elif (speed > 0):
+                if(second_int.interval()):
+                    #updateSpeed(-50)
+                    speed -= 50
+                    if(speed<0):
+                        speed = 0
+                    print("speed changed")
+                    writeSpeed(speed,"0","0")
+            avoidWall(dist)
+            #if (time.time() - start > 10):
+             #   dataAnalysis(tArray, dArray, sArray, fArray)
+            #out = motorWrite(speed, '0', speed, '0')
+            #print(out)
+            #if(interval(start, 5)):
+            #if(one_int.interval()):
+            #    m.write(out)
+            #print(speed)
+            #print("\n")
+            #xtime.sleep(5)
     
 loop()
 #serialTest()
 
-
+print("done")
 #m = arduino_serial(arduino_path)
 #m.write("02550255")
