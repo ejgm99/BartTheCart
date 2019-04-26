@@ -1,4 +1,4 @@
-
+import time
 class intervaller():
     def __init__(self, period):
         self.start = time.time()
