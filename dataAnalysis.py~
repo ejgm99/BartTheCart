@@ -1,0 +1,44 @@
+import matplotlib.pyplot as plt
+
+
+
+def dataAnalysis(t,d,s,f):
+    print("Time")
+    print(t)
+    print("Distance")
+    print(d)
+    print("Sound")
+    print(s)
+    print("Force")
+    print(f)
+    plt.subplot(3,1,1)
+    plt.scatter(t,d)
+    plt.title('Distance vs Time')
+    plt.xlabel('Time')
+    plt.ylabel('Distance')
+    axes = plt.gca()
+    axes.set_ylim([0,240])
+    dLine = np.array([distLvl for i in range(0,len(t))])
+    plt.plot(t,dLine,'g')
+    
+    plt.subplot(3,1,2)
+    plt.scatter(t,s)
+    plt.title('Sound vs Time')
+    plt.ylabel('Sound')
+    axes = plt.gca()
+    axes.set_ylim([0,1024])
+    sLine = np.array([yellLvl for i in range(0,len(t))])
+    plt.plot(t,sLine,'g')
+
+    plt.subplot(3,1,3)
+    plt.scatter(t,f)
+    plt.title('Force vs Time')
+    plt.ylabel('Force')
+    axes = plt.gca()
+    axes.set_ylim([0,1024])
+    fLine = np.array([smackLvl for i in range(0,len(t))])
+    plt.plot(t,fLine,'g')
+
+    plt.tight_layout()
+    plt.savefig('BartData.png')    
+    #plt.show()

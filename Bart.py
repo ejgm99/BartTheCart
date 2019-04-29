@@ -3,17 +3,23 @@ import spiUtils as su
 import ArduinoSerial
 import Intervaller
 from pynput.keyboard import Key, Listener
+import threading
+import dataAnalysis as d
+import time
+#import time.time()
+print(threading.current_thread().getName())
 class Bart:
     def __init__(self):
         self.listener = Listener(on_press=self.on_press, on_release = self.on_release)
         self.speed = 0
-        self.maxSpeed = 255
+        self.maxSpeed = 80
         self.minSpeed = 0
         self.run = True
         self.serialMode = True
         self.setThresholds()
         self.serial = ArduinoSerial.arduino_serial()
-        self.second_int = Intervaller.intervaller(1)
+        self.second_int = Intervaller.intervaller(3)
+        self.elapsedTime = self.second_int.elapsedTime
     def updateSpeed(self, update):
         if(self.speed + update > self.maxSpeed):
             self.speed = self.maxSpeed
@@ -21,80 +27,123 @@ class Bart:
             self.speed = 0
         else:
             self.speed +=update
-        writeSpeed(self.speed, 0,0)
+        self.writeSpeed(self.speed, 0,0)
     def avoidWall(self, dist):
         if(dist<self.distLvl):
-            while (m.getDistance() < self.distLvl):
-                self.rotate()     
-    def rotate():#always go left, to clean room
+            self.writeSpeed(0,0,0)
+            self.rotate()     
+    def rotate(self):#always go left, to clean room
         print("rotating... ")
-        turn = motorWrite(10,'0',10,'1')
-        m.write(turn)
-        while(int(m.serial.readline())<distLvl):
-            print("rotating.. ")
-        m.write("00000000")
-    def writeSpeed(speed, ax1, ax2):
-        print("     Writing "+ str(speed)+ " " + str(ax1) + " " + str(ax2))
-        out = motorWrite(speed, ax1, speed, ax2)
-        m.write(out)
+        #turn = self.motorWrite(50,'1',50,'0')
+        #self.serial.write(turn)
+        self.serial.specialWrite("10200020")
+        while(int(self.serial.readLine())<self.distLvl):
+            print("rotating.. ", int(self.serial.readLine()))
+        self.serial.write("00000000")
+    def writeSpeed(self, speed, ax1, ax2):
+        ax1 = str(ax1)
+        ax2 = str(ax2)
+        out = self.motorWrite(speed, ax1, speed, ax2)
+        self.serial.write(out)
     def on_press(self, key):
         try:
-            if key == key.space:
-                #print("Space press")
-                self.mode = not self.mode
-                print("mode changed: ", self.mode)
-                if self.mode == 0:
-                    self.write("9")
-                else:
-                    go()
+            if (key   == key.space):
+                print("Space pressed", self.serialMode)
+                self.serialMode = not self.serialMode
+                print("mode changed: ", self.serialMode)
+                    
             if key == key.esc:
-                #print("Escaping")
+                print("Escaping")
                 self.run= False
-                self.listener.stop()
-        except AttributeError:
-            print("not space")
+        except(AttributeError):
+            return
     def on_release(self,key):
         return
     def setThresholds(self):
-        self.smackLvl = 50
+        self.smackLvl = 200   
         self.yellLvl = 200
-        self.distLvl = 15
+        self.distLvl = 80
     def sensorInputSetup(self):
-        self.tArray = np.zeros(1)
-        self.fArray = np.empty(1)
-        self.sArray = np.empty(1)
-        self.dArray = np.empty(1)
+        self.tList = []
+        self.fList = []
+        self.sList = []
+        self.dList = []
+        self.vList = []
         self.dist = 0
         self.force = 0
         self.sound = 0
     def sensorInput(self):
-            self.dist = int(m.serial.readline())
-            self.force = su.readADC(channel=0)
-            self.sound = su.readADC(channel=1)
-            self.tArray = np.append(tArray,(time.time() - start))
-            self.fArray = np.append(fArray,force)
-            self.sArray = np.append(sArray,sound)
-            self.dArray = np.append(dArray,dist)
+        self.dist = int(self.serial.readLine())
+        #print("Distance ", self.dist)
+        self.force = su.readADC(channel=0)
+        self.sound = su.readADC(channel=1)
+        #print("Force ",self.force)
+        #print("Sound ",self.sound)
+        self.tList.append(self.elapsedTime())
+        self.fList.append(self.force)
+        self.sList.append(self.sound)
+        self.dList.append(self.dist)
+        self.vList.append(self.speed)
+    def motorWrite(self, left, left_dir, right, right_dir):
+        left = str(left)
+        right= str(right)
+        while(len(left)<3):
+            left = '0'+left
+        while(len(right)<3):
+            right = '0'+right
+        out = left_dir + str(left) + right_dir+ str(right)
+        return out;
     def serialDrive(self):
         if (self.force > self.smackLvl):
-            print("Ouch!")
-            self.updateSpeed(100)
-            writeSpeed(speed,"0","0")
+            print("Ouch ", self.force)
+            self.updateSpeed(20)
         if (self.sound > self.yellLvl):
-            print("Oof my ear")
-            self.updateSpeed(50)
+            print("Oof my ears",self.sound)
+            self.updateSpeed(15)
         if(self.second_int.interval()):
-            self.updateSpeed(-50)
-        avoidWall(dist)
+            print("Speed Decreased")
+            self.updateSpeed(-3)
+        print(self.dist)
+        self.avoidWall(self.dist)
     def setup(self):
         self.sensorInputSetup()
         self.listener.start()
         self.serial.hardReset()
+
     def go(self):
+        sentNine = False
         while(self.run):
+            print("Running ", self.serialMode)
+            print(threading.current_thread().getName())
             if(self.serialMode):
-                self.sensorInput()
-                self.serialDrive()
+                print(self.serial.serial.in_waiting)
+                #print("In serial mode...")
+                self.sensorInput() #measures data
+                self.serialDrive() #acts on measured data
+                if sentNine == True: #
+                    print("Setting sent nine to false...")
+                    sentNine = False
+            else:
+                if not sentNine: #"latch" so we don't send 9 constantly to the arduino while it is in serial mode
+                    print("In rc mode...")
+                    self.serial.specialWrite("9") #
+                    sentNine = True
+                print("Safe to press space bar for 5 seconds")
+                time.sleep(5)
+                print("dont press the space bar")
     def begin(self):
-        setup()
-        go()
+        
+        self.setup()
+        self.go()
+        self.tArray = np.array(self.tList)
+        self.fArray = np.array(self.fList)
+        self.sArray = np.array(self.sList)
+        self.dArray = np.array(self.dList)
+        self.vArray = np.array(self.vList)
+        d.dataAnalysis(self.tArray, self.dArray, self.sArray, self.fArray, self.vArray)
+
+        self.writeSpeed(0,0,0)
+        self.listener.stop()
+
+b = Bart()
+b.begin()

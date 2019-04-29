@@ -1,4 +1,4 @@
-
+import time
 class intervaller():
     def __init__(self, period):
         self.start = time.time()
@@ -19,3 +19,5 @@ class intervaller():
             self.isInterval = 0
           #  print("    returning false")
         return False
+    def elapsedTime(self):
+        return time.time()-self.start

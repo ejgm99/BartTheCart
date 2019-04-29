@@ -21,14 +21,24 @@ class arduino_serial(): #interface for talking to arduino
     def getResponse(self):
         print(self.serial.readline())
         print(self.response.decode("ascii"))
-    def hardReset():
+    def hardReset(self):
         print("Reseting arduino")
         self.write("00000000")
         self.serial.close()
         self.serial.open()
         time.sleep(1)
         self.serial.reset_input_buffer()
-
+    def clearOut(self):
+        self.serial.reset_output_buffer()
+    def readLine(self):
+        #out = 315
+        #if(self.serial.in_waiting):
+        #    print("actually recieved arduino data")
+        out = self.serial.readline()
+        return out
+    def specialWrite(self,msg): #this willl be improved later but for now is just this
+        time.sleep(2) #this delay is needed because of serial shenanigans
+        self.write(msg)
 
         
 def serialTest(): #proof that the arduino can recieve serial and send to the odrive
@@ -51,3 +61,17 @@ def serialTest(): #proof that the arduino can recieve serial and send to the odr
             print("Writing: "+ out)
             speed = speed +15
             m.write(out)
+
+def rapidSerialTest():
+    s = arduino_serial()
+    s.write("02000200")
+    time.sleep(2)
+    s.write("01000100")
+    s.serial.reset_output_buffer()
+ #   time.sleep(1)
+#    s.write("9")
+    time.sleep(3)
+    s.write("9")
+
+#rapidSerialTest()
+ 
